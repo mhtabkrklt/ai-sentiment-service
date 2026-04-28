@@ -1,0 +1,56 @@
+{
+  "title": "Sentiment API",
+  "uid": "sentiment-api",
+  "schemaVersion": 38,
+  "refresh": "10s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "RPS (запросов в секунду)",
+      "type": "timeseries",
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "rate(http_requests_total{app_name=\"sentiment-analysis-api\"}[1m])",
+          "legendFormat": "{{method}} {{handler}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Время ответа (p95, секунды)",
+      "type": "timeseries",
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{app_name=\"sentiment-analysis-api\"}[1m]))",
+          "legendFormat": "p95 {{handler}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "HTTP статусы",
+      "type": "timeseries",
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "rate(http_requests_total{app_name=\"sentiment-analysis-api\"}[1m])",
+          "legendFormat": "{{status_code}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Среднее время ответа (секунды)",
+      "type": "stat",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "rate(http_request_duration_seconds_sum{app_name=\"sentiment-analysis-api\"}[5m]) / rate(http_request_duration_seconds_count{app_name=\"sentiment-analysis-api\"}[5m])",
+          "legendFormat": "avg latency"
+        }
+      ]
+    }
+  ]
+}

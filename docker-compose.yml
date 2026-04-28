@@ -89,6 +89,7 @@ services:
     # Graceful Shutdown
     stop_grace_period: 30s
 
+  # Горизонтальное масштабирование
   worker:
     build:
       context: ./api
@@ -99,6 +100,8 @@ services:
       - model_cache:/models
     networks:
       - backend_net
+    deploy:
+      replicas: 2
     depends_on:
       redis:
         condition: service_healthy
@@ -133,6 +136,38 @@ services:
         condition: service_started
     stop_grace_period: 30s
 
+  # Метрики
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - backend_net
+    ports:
+      - "9090:9090"
+    depends_on:
+      api:
+        condition: service_healthy
+    stop_grace_period: 10s
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - backend_net
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    stop_grace_period: 10s
+
 # Разделение сетей
 networks:
   frontend_net:
@@ -145,3 +180,5 @@ volumes:
   model_cache:
   redis_data:
   postgres_data:
+  prometheus_data:
+  grafana_data:

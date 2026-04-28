@@ -2,15 +2,17 @@
 import redis
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from app.config import settings
+from app.db.session import AsyncSessionLocal
 
 router = APIRouter()
 
 
 @router.get("/health")
 async def health(request: Request):
-    checks = {"api": True, "model": False, "redis": False}
+    checks = {"api": True, "model": False, "redis": False, "postgres": False}
 
     model = getattr(request.app.state, "model", None)
     if model and model.is_ready():
@@ -24,6 +26,13 @@ async def health(request: Request):
         pass
     finally:
         r.close()
+
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+        checks["postgres"] = True
+    except Exception:
+        pass
 
     all_ok = all(checks.values())
     status_code = 200 if all_ok else 503

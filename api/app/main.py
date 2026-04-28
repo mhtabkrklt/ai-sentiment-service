@@ -3,6 +3,7 @@ import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.config import settings
 from app.exceptions import (
@@ -52,6 +53,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Sentiment Analysis API", lifespan=lifespan)
+
+# Метрики
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 # Обработка ошибок
 app.add_exception_handler(ModelNotReadyException, model_not_ready_handler)
