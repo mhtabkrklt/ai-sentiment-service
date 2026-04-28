@@ -1,0 +1,147 @@
+services:
+  # Compose Healthcheck
+  postgres:
+    image: postgres:16-alpine
+    env_file: .env
+    environment:
+      POSTGRES_USER: sentiment
+      POSTGRES_PASSWORD: sentiment
+      POSTGRES_DB: sentiment
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentiment"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    stop_grace_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    stop_grace_period: 30s
+
+  model-init:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    command: python -m app.download_model
+    env_file: .env
+    volumes:
+      - model_cache:/models
+    networks:
+      - backend_net
+    restart: "no"
+
+  # Версионирование данных
+  db-migrate:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    command: alembic upgrade head
+    env_file: .env
+    networks:
+      - backend_net
+    # Порядок запуска
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # Управление постоянством данных
+  # Порядок запуска
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    env_file: .env
+    volumes:
+      - model_cache:/models
+    networks:
+      - frontend_net
+      - backend_net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health').read()"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+    # Порядок запуска
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      model-init:
+        condition: service_completed_successfully
+      db-migrate:
+        condition: service_completed_successfully
+    # Graceful Shutdown
+    stop_grace_period: 30s
+
+  worker:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    command: celery -A app.celery_app:celery worker --loglevel=info --concurrency=1
+    env_file: .env
+    volumes:
+      - model_cache:/models
+    networks:
+      - backend_net
+    depends_on:
+      redis:
+        condition: service_healthy
+      model-init:
+        condition: service_completed_successfully
+    stop_grace_period: 30s
+
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    env_file: .env
+    networks:
+      - frontend_net
+    depends_on:
+      api:
+        condition: service_healthy
+    stop_grace_period: 30s
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - frontend_net
+    depends_on:
+      api:
+        condition: service_healthy
+      ui:
+        condition: service_started
+    stop_grace_period: 30s
+
+# Разделение сетей
+networks:
+  frontend_net:
+    driver: bridge
+  backend_net:
+    driver: bridge
+
+# Управление постоянством данных
+volumes:
+  model_cache:
+  redis_data:
+  postgres_data:
