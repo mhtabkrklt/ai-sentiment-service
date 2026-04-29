@@ -24,6 +24,7 @@
 | Миграции | Alembic |
 | UI | Streamlit + Plotly |
 | Reverse proxy | Nginx (rate limiting 5 req/min) |
+| Мониторинг | Prometheus + Grafana |
 | Оркестрация | Docker Compose |
 | Менеджер зависимостей | uv |
 
@@ -47,6 +48,8 @@ docker compose ps
 - **UI:** http://localhost
 - **API:** http://localhost/api
 - **Swagger:** http://localhost/api/docs
+- **Prometheus**  http://localhost:9090
+- **Grafana**  http://localhost:3000 (логин/пароль: admin/admin)
 
 ## Примеры API
 
@@ -57,7 +60,7 @@ curl http://localhost/api/health
 ```
 
 ```json
-{"status": "ok", "checks": {"api": true, "model": true, "redis": true}}
+{"status": "ok", "checks": {"api": true, "model": true, "redis": true, "database": true}}
 ```
 
 ### Синхронный анализ
@@ -114,6 +117,8 @@ curl http://localhost/api/history
   }
 ]
 ```
+## Метрики Prometheus
+curl http://localhost/api/metrics
 
 ## Конфигурация
 
